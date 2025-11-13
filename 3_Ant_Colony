@@ -1,0 +1,97 @@
+print('Sheya Raj ')
+import random
+import math
+
+def distance(city1, city2):
+    return math.sqrt((city1[0] - city2[0])**2 + (city1[1] - city2[1])**2)
+
+def initialize_pheromone(num_cities, tau0):
+    return [[tau0 for _ in range(num_cities)] for _ in range(num_cities)]
+
+def roulette_wheel_selection(probabilities):
+    r = random.random()
+    cumulative = 0.0
+    for i, p in enumerate(probabilities):
+        cumulative += p
+        if r <= cumulative:
+            return i
+    return len(probabilities) - 1  # in case of rounding errors
+
+def ant_colony_optimization(cities, alpha=1.0, beta=5.0, evaporation_rate=0.5, Q=100, max_iterations=100, num_ants=10):
+    num_cities = len(cities)
+    pheromone = initialize_pheromone(num_cities, tau0=0.1)
+
+    best_tour = None
+    best_length = float('inf')
+
+    for iteration in range(max_iterations):
+        all_tours = []
+        all_lengths = []
+
+        for _ in range(num_ants):
+            start_city = random.randint(0, num_cities - 1)
+            visited = {start_city}
+            tour = [start_city]
+            current_city = start_city
+
+            while len(visited) < num_cities:
+                probabilities = []
+                unvisited_cities = [city for city in range(num_cities) if city not in visited]
+
+                denominator = 0
+                for j in unvisited_cities:
+                    dist = distance(cities[current_city], cities[j])
+                    eta = 1.0 / dist if dist > 0 else 1e10  # avoid div by zero
+                    denominator += (pheromone[current_city][j] ** alpha) * (eta ** beta)
+
+                for j in unvisited_cities:
+                    dist = distance(cities[current_city], cities[j])
+                    eta = 1.0 / dist if dist > 0 else 1e10
+                    numerator = (pheromone[current_city][j] ** alpha) * (eta ** beta)
+                    probabilities.append(numerator / denominator)
+
+                next_city_index = roulette_wheel_selection(probabilities)
+                next_city = unvisited_cities[next_city_index]
+                tour.append(next_city)
+                visited.add(next_city)
+                current_city = next_city
+
+            # Complete the tour by returning to start city
+            tour.append(start_city)
+
+            # Calculate total tour length
+            length = 0
+            for i in range(len(tour) - 1):
+                length += distance(cities[tour[i]], cities[tour[i + 1]])
+
+            all_tours.append(tour)
+            all_lengths.append(length)
+
+            if length < best_length:
+                best_length = length
+                best_tour = tour
+
+        # Pheromone evaporation
+        for i in range(num_cities):
+            for j in range(num_cities):
+                pheromone[i][j] *= (1 - evaporation_rate)
+
+        # Pheromone update
+        for tour, length in zip(all_tours, all_lengths):
+            deposit = Q / length
+            for i in range(len(tour) - 1):
+                a, b = tour[i], tour[i + 1]
+                pheromone[a][b] += deposit
+                pheromone[b][a] += deposit  # if symmetric
+
+        print(f"Iteration {iteration+1}/{max_iterations}, best length: {best_length:.4f}")
+
+    return best_tour, best_length
+
+# Example usage:
+if __name__ == "__main__":
+    # Define some cities (x, y)
+    cities = [(0, 0), (1, 5), (5, 2), (6, 6), (8, 3)]
+    best_tour, best_length = ant_colony_optimization(cities)
+    print("Best tour:", best_tour)
+    print("Best tour length:", best_length)
