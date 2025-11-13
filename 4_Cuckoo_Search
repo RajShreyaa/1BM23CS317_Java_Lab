@@ -1,0 +1,56 @@
+import numpy as np
+import math
+print('Shreya Raj 1BM23CS317')
+def objective_function(x):
+    return np.sum(x**2)
+
+def initialize_nests(num_nests, dim, lower_bound, upper_bound):
+    return np.random.uniform(lower_bound, upper_bound, size=(num_nests, dim))
+
+def levy_flight(Lambda, size):
+    sigma = (math.gamma(1 + Lambda) * math.sin(math.pi * Lambda / 2) /
+             (math.gamma((1 + Lambda) / 2) * Lambda * 2**((Lambda - 1) / 2))) ** (1 / Lambda)
+    u = np.random.randn(*size) * sigma
+    v = np.random.randn(*size)
+    step = u / np.abs(v) ** (1 / Lambda)
+    return step
+
+def cuckoo_search(num_nests=25, dim=2, lower_bound=-10, upper_bound=10,
+                  pa=0.25, max_iter=100):
+
+    nests = initialize_nests(num_nests, dim, lower_bound, upper_bound)
+    fitness = np.apply_along_axis(objective_function, 1, nests)
+
+    best_nest = nests[np.argmin(fitness)].copy()
+    best_fitness = np.min(fitness)
+
+    for t in range(max_iter):
+        new_nests = nests + 0.01 * levy_flight(1.5, nests.shape) * (nests - best_nest)
+        new_nests = np.clip(new_nests, lower_bound, upper_bound)
+
+        new_fitness = np.apply_along_axis(objective_function, 1, new_nests)
+
+        mask = new_fitness < fitness
+        nests[mask] = new_nests[mask]
+        fitness[mask] = new_fitness[mask]
+
+        rand = np.random.rand(num_nests, dim)
+        new_nests = np.where(rand > pa, nests,
+                             initialize_nests(num_nests, dim, lower_bound, upper_bound))
+
+        new_fitness = np.apply_along_axis(objective_function, 1, new_nests)
+        mask = new_fitness < fitness
+        nests[mask] = new_nests[mask]
+        fitness[mask] = new_fitness[mask]
+
+        if np.min(fitness) < best_fitness:
+            best_nest = nests[np.argmin(fitness)].copy()
+            best_fitness = np.min(fitness)
+
+        print(f"Iteration {t+1}/{max_iter} | Best Fitness: {best_fitness:.6f}")
+
+    return best_nest, best_fitness
+
+best_solution, best_value = cuckoo_search()
+print("\nBest solution found:", best_solution)
+print("Best fitness value:", best_value)
